@@ -38,22 +38,23 @@ class ScrapeCatalog
         }
     }
 
-    private function extractCourseInfo(\DOMDocument $dom)
+    private function extractCourseInfo(\DOMDocument $dom, $data)
     {
-        $course_info = [];
-
         $key = $dom->getElementsByTagName('h3')->item(0);
 
         preg_match('~\s+([A-Z]+\s+\d+[A-Z]*)\.\s+([^\n]+)\s+\((\d+).*\)\.\s+~', $key->textContent, $matches);
 
-        $course_info['id'] = $data['subject'] . $data['level'];
+        $course_id = $data['subject'] . $data['level'];
 
-        $course = Course::firstOrNew($course_info);
+        $course = Course::firstOrNew(['id' => $course_id]);
 
-        $course_info['level']       = $data['level'];
-        $course_info['title']       = trim($matches[2]);
-        $course_info['description'] = trim($key->nextSibling->wholeText);
-        $course_info['subject_id']  = Subject::find($data['subject'])->id;
+        $course_info = [
+            'id'          => $course_id,
+            'level'       => $data['level'],
+            'title'       => trim($matches[2]),
+            'description' => trim($key->nextSibling->wholeText),
+            'subject_id'  => Subject::find($data['subject'])->id,
+        ];
 
         if (!is_null($dom->getElementById('ctl00_ContentPlaceHolder1_lblCoursePrereqs'))) {
             $course_info['prereqs'] = trim($dom->getElementById('ctl00_ContentPlaceHolder1_lblCoursePrereqs')->nextSibling->wholeText);
@@ -77,6 +78,27 @@ class ScrapeCatalog
         ];
     }
 
+    private function extractSection($row, $section_info)
+    {
+        $sec = Section::firstOrNew($section_info);
+
+        $values = [
+            'term'            => trim($row->childNodes->item(0)->textContent),
+            'section_number'  => intval($row->childNodes->item(2)->textContent),
+            'credits'         => intval($row->childNodes->item(3)->textContent),
+            'raw_times'       => $this->DOMinnerHTML($row->childNodes->item(5)->childNodes->item(0)),
+            'raw_locations'   => $this->DOMinnerHTML($row->childNodes->item(6)->childNodes->item(0)),
+            'instructor_id'   => Instructor::firstOrCreate(['name' => $row->childNodes->item(4)->textContent])->id,
+            'section_type_id' => SectionType::firstOrCreate(['name' => $row->childNodes->item(8)->textContent])->id,
+        ];
+
+        foreach ($values as $key => $value) {
+            $sec->$key = $value;
+        }
+
+        return $sec;
+    }
+
     public function work($data)
     {
         Model::unguard();
@@ -89,7 +111,7 @@ class ScrapeCatalog
         $dom = new \DOMDocument;
         $dom->loadHTML($contents);
 
-        $course_info = $this->extractCourseInfo($dom);
+        $course_info = $this->extractCourseInfo($dom, $data);
         $course_id   = $course_info['id'];
 
         $table = $dom->getElementById("ctl00_ContentPlaceHolder1_SOCListUC1_gvOfferings");
@@ -109,25 +131,10 @@ class ScrapeCatalog
 
             $section_info = [
                 'id'        => intval($row->childNodes->item(1)->textContent),
-                // 'campus_id' => find_or_insert_campus($row->childNodes->item(7)->textContent),
                 'course_id' => $course_id,
             ];
 
-            $sec = Section::firstOrNew($section_info);
-
-            $values = [
-                'term'            => trim($row->childNodes->item(0)->textContent),
-                'section_number'  => intval($row->childNodes->item(2)->textContent),
-                'credits'         => intval($row->childNodes->item(3)->textContent),
-                'raw_times'       => $this->DOMinnerHTML($row->childNodes->item(5)->childNodes->item(0)),
-                'raw_locations'   => $this->DOMinnerHTML($row->childNodes->item(6)->childNodes->item(0)),
-                'instructor_id'   => Instructor::firstOrCreate(['name' => $row->childNodes->item(4)->textContent])->id,
-                'section_type_id' => SectionType::firstOrCreate(['name' => $row->childNodes->item(8)->textContent])->id,
-            ];
-
-            foreach ($values as $key => $value) {
-                $sec->$key = $value;
-            }
+            $sec = $this->extractSection($row, $section_info);
 
             $current_enrollment  = $this->extractEnrollmentData($row, 10);
             $waitlist_enrollment = $this->extractEnrollmentData($row, 13);
