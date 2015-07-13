@@ -2,6 +2,7 @@
 
 namespace Courses\Http\Controllers\Api;
 
+use Illuminate\Http\JsonResponse;
 use League\Fractal;
 
 trait TraitTransformer
@@ -35,6 +36,10 @@ trait TraitTransformer
     {
         if (!is_null($this->transformer)) {
             $data = $this->transformData($data);
+        }
+
+        if (!$this->response) {
+            $this->response = app(JsonResponse::class);
         }
 
         $this->response->setData($data);

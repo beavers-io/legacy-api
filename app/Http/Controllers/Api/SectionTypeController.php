@@ -3,37 +3,30 @@
 use Courses\Http\Controllers\Controller;
 use Courses\Repositories\SectionType\SectionTypeRepositoryInterface;
 use Courses\Transformers\SectionTypeTransformer;
-use Illuminate\Http\JsonResponse;
 
 class SectionTypeController extends Controller
 {
 
     use TraitTransformer;
 
-    protected $sectionTypeRepo;
-
-    protected $response;
-
     protected $transformer;
 
-    public function __construct(SectionTypeRepositoryInterface $sectionTypeRepo, JsonResponse $response, SectionTypeTransformer $transformer)
+    public function __construct(SectionTypeTransformer $transformer)
     {
-        $this->sectionTypeRepo = $sectionTypeRepo;
-        $this->response        = $response;
-        $this->transformer     = $transformer;
+        $this->transformer = $transformer;
     }
 
-    public function index()
+    public function index(SectionTypeRepositoryInterface $sectionTypeRepo)
     {
         return $this->createJsonResponse(
-            $this->sectionTypeRepo->paginateResults()->all()
+            $sectionTypeRepo->paginateResults()->all()
         );
     }
 
-    public function show($instructor_id)
+    public function show(SectionTypeRepositoryInterface $sectionTypeRepo, $sectionTypeId)
     {
         return $this->createJsonResponse(
-            $this->sectionTypeRepo->find($instructor_id)
+            $sectionTypeRepo->find($sectionTypeId)
         );
     }
 
