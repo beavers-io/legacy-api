@@ -1,5 +1,7 @@
 # Which Course For Me
 
+[![Code Climate](https://codeclimate.com/github/wcfm/legacy-api/badges/gpa.svg)](https://codeclimate.com/github/wcfm/legacy-api)
+
 ## About
 
 Which Course For Me started as a project for my CS 275, Introduction to Databases course at Oregon State.
