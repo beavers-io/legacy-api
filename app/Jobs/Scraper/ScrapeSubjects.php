@@ -32,29 +32,32 @@ class ScrapeSubjects
         });
     }
 
+    private function extractMatches($index, $matches)
+    {
+        if (sizeof($matches) <= 2) {
+            return trim($matches[1][$index]);
+        }
+
+        // if there is more than one group in the regex, return the
+        // group values as an array
+
+        $details = [];
+        for ($j = 1; $j < sizeof($matches); $j++) {
+            $details[] = trim($matches[$j][$index]);
+        }
+        return $details;
+
+    }
+
     private function getMatches($contents, $delimiter, $pattern)
     {
         $subbed  = substr($contents, strpos($contents, $delimiter));
         $results = preg_match_all($pattern, $subbed, $matches);
 
         $values = [];
-        for ($i = 0; $i < $results; $i++) {
-            // if there is more than one group in the regex, return the
-            // group values as an array
-
-            if (sizeof($matches) > 2) {
-                $details = [];
-
-                for ($j = 1; $j < sizeof($matches); $j++) {
-                    $details[] = trim($matches[$j][$i]);
-                }
-
-                $values[] = $details;
-            } else {
-                $values[] = trim($matches[1][$i]);
-            }
+        for ($index = 0; $index < $results; $index++) {
+            $values[] = $this->extractMatches($index, $matches);
         }
-
         return $values;
     }
 
