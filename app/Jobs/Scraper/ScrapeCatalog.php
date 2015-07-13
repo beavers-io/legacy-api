@@ -42,30 +42,28 @@ class ScrapeCatalog
     {
         $course_info = [];
 
-        foreach ($dom->getElementsByTagName('h3') as $key) {
-            $asdf              = preg_match('~\s+([A-Z]+\s+\d+[A-Z]*)\.\s+([^\n]+)\s+\((\d+).*\)\.\s+~', $key->textContent, $matches);
-            $course_id         = $data['subject'] . $data['level'];
-            $course_info['id'] = $course_id;
+        $key = $dom->getElementsByTagName('h3')->item(0);
 
-            $course = Course::firstOrNew($course_info);
+        preg_match('~\s+([A-Z]+\s+\d+[A-Z]*)\.\s+([^\n]+)\s+\((\d+).*\)\.\s+~', $key->textContent, $matches);
 
-            $course_info['level']       = $data['level'];
-            $course_info['title']       = trim($matches[2]);
-            $course_info['description'] = trim($key->nextSibling->wholeText);
-            $course_info['subject_id']  = Subject::find($data['subject'])->id;
+        $course_info['id'] = $data['subject'] . $data['level'];
 
-            if (!is_null($dom->getElementById('ctl00_ContentPlaceHolder1_lblCoursePrereqs'))) {
-                $course_info['prereqs'] = trim($dom->getElementById('ctl00_ContentPlaceHolder1_lblCoursePrereqs')->nextSibling->wholeText);
-            }
+        $course = Course::firstOrNew($course_info);
 
-            foreach ($course_info as $key => $value) {
-                $course->$key = $value;
-            }
+        $course_info['level']       = $data['level'];
+        $course_info['title']       = trim($matches[2]);
+        $course_info['description'] = trim($key->nextSibling->wholeText);
+        $course_info['subject_id']  = Subject::find($data['subject'])->id;
 
-            $course->save();
-
-            break;
+        if (!is_null($dom->getElementById('ctl00_ContentPlaceHolder1_lblCoursePrereqs'))) {
+            $course_info['prereqs'] = trim($dom->getElementById('ctl00_ContentPlaceHolder1_lblCoursePrereqs')->nextSibling->wholeText);
         }
+
+        foreach ($course_info as $key => $value) {
+            $course->$key = $value;
+        }
+
+        $course->save();
 
         return $course_info;
     }
@@ -92,6 +90,7 @@ class ScrapeCatalog
         $dom->loadHTML($contents);
 
         $course_info = $this->extractCourseInfo($dom);
+        $course_id   = $course_info['id'];
 
         $table = $dom->getElementById("ctl00_ContentPlaceHolder1_SOCListUC1_gvOfferings");
 
