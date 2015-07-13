@@ -90,12 +90,12 @@ class ScrapeCatalog {
 			return;
 		}
 
-		$i = 0;
+		$rowNumber = 0;
 		$rows = $table->getElementsByTagName('tr');
 
 		foreach ($rows as $row)
 		{
-			if ($i++ == 0) continue;
+			if ($rowNumber++ == 0) continue;
 
 			$section_info = [
 				'id' => intval($row->childNodes->item(1)->textContent),
