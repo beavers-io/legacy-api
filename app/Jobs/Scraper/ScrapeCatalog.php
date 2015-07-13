@@ -6,155 +6,154 @@ use Courses\Section;
 use Courses\SectionEnrollment;
 use Courses\SectionType;
 use Courses\Subject;
-
 use Illuminate\Database\Eloquent\Model;
 
-class ScrapeCatalog {
+class ScrapeCatalog
+{
 
-	const CATALOG_URL = 'http://catalog.oregonstate.edu/CourseDetail.aspx?Columns=afghjklmopqrstuvz&SubjectCode=%s&CourseNumber=%s';
+    const CATALOG_URL = 'http://catalog.oregonstate.edu/CourseDetail.aspx?Columns=afghjklmopqrstuvz&SubjectCode=%s&CourseNumber=%s';
 
-	// http://stackoverflow.com/a/2087136/758310
-	private function DOMinnerHTML(\DOMElement $element)
-	{
-		$innerHTML = "";
-		$children  = $element->childNodes;
+    // http://stackoverflow.com/a/2087136/758310
+    private function DOMinnerHTML(\DOMElement $element)
+    {
+        $innerHTML = "";
+        $children  = $element->childNodes;
 
-		foreach ($children as $child)
-		{
-			$innerHTML .= $element->ownerDocument->saveHTML($child);
-		}
+        foreach ($children as $child) {
+            $innerHTML .= $element->ownerDocument->saveHTML($child);
+        }
 
-		return trim($innerHTML);
-	}
+        return trim($innerHTML);
+    }
 
-	public function fire($job, $data)
-	{
-		try
-		{
-			$this->work($data);
-			$job->delete();
-		}
-		catch (\ErrorException $e)
-		{
-			$job->release();
-			throw $e;
-		}
-	}
+    public function fire($job, $data)
+    {
+        try
+        {
+            $this->work($data);
+            $job->delete();
+        } catch (\ErrorException $e) {
+            $job->release();
+            throw $e;
+        }
+    }
 
-	public function work($data)
-	{
-		Model::unguard();
+    private function extractCourseInfo(\DOMDocument $dom)
+    {
+        $course_info = [];
 
-		$url = sprintf(self::CATALOG_URL, $data['subject'], $data['level']);
-		$contents = file_get_contents($url);
+        foreach ($dom->getElementsByTagName('h3') as $key) {
+            $asdf              = preg_match('~\s+([A-Z]+\s+\d+[A-Z]*)\.\s+([^\n]+)\s+\((\d+).*\)\.\s+~', $key->textContent, $matches);
+            $course_id         = $data['subject'] . $data['level'];
+            $course_info['id'] = $course_id;
 
-		libxml_use_internal_errors(true);
+            $course = Course::firstOrNew($course_info);
 
-		$dom = new \DOMDocument;
-		$dom->loadHTML($contents);
+            $course_info['level']       = $data['level'];
+            $course_info['title']       = trim($matches[2]);
+            $course_info['description'] = trim($key->nextSibling->wholeText);
+            $course_info['subject_id']  = Subject::find($data['subject'])->id;
 
-		$course_info = [];
+            if (!is_null($dom->getElementById('ctl00_ContentPlaceHolder1_lblCoursePrereqs'))) {
+                $course_info['prereqs'] = trim($dom->getElementById('ctl00_ContentPlaceHolder1_lblCoursePrereqs')->nextSibling->wholeText);
+            }
 
-		foreach ($dom->getElementsByTagName('h3') as $key)
-		{
-			$asdf = preg_match('~\s+([A-Z]+\s+\d+[A-Z]*)\.\s+([^\n]+)\s+\((\d+).*\)\.\s+~', $key->textContent, $matches);
-			$course_id = $data['subject'] . $data['level'];
-			$course_info['id'] = $course_id;
+            foreach ($course_info as $key => $value) {
+                $course->$key = $value;
+            }
 
-			$course = Course::firstOrNew($course_info);
+            $course->save();
 
-			$course_info['level'] = $data['level'];
-			$course_info['title'] = trim($matches[2]);
-			$course_info['description'] = trim($key->nextSibling->wholeText);
-			$course_info['subject_id'] = Subject::find($data['subject'])->id;
+            break;
+        }
 
-			if (!is_null($dom->getElementById('ctl00_ContentPlaceHolder1_lblCoursePrereqs')))
-			{
-				$course_info['prereqs'] = trim($dom->getElementById('ctl00_ContentPlaceHolder1_lblCoursePrereqs')->nextSibling->wholeText);
-			}
+        return $course_info;
+    }
 
-			foreach ($course_info as $key => $value)
-			{
-				$course->$key = $value;
-			}
+    private function extractEnrollmentData($row, $offset)
+    {
+        return [
+            'cap'       => intval($row->childNodes->item($offset)->textContent),
+            'current'   => intval($row->childNodes->item($offset + 1)->textContent),
+            'available' => intval($row->childNodes->item($offset + 2)->textContent),
+        ];
+    }
 
-			$course->save();
+    public function work($data)
+    {
+        Model::unguard();
 
-			break;
-		}
+        $url      = sprintf(self::CATALOG_URL, $data['subject'], $data['level']);
+        $contents = file_get_contents($url);
 
-		$table = $dom->getElementById("ctl00_ContentPlaceHolder1_SOCListUC1_gvOfferings");
+        libxml_use_internal_errors(true);
 
-		if (is_null($table))
-		{
-			return;
-		}
+        $dom = new \DOMDocument;
+        $dom->loadHTML($contents);
 
-		$rowNumber = 0;
-		$rows = $table->getElementsByTagName('tr');
+        $course_info = $this->extractCourseInfo($dom);
 
-		foreach ($rows as $row)
-		{
-			if ($rowNumber++ == 0) continue;
+        $table = $dom->getElementById("ctl00_ContentPlaceHolder1_SOCListUC1_gvOfferings");
 
-			$section_info = [
-				'id' => intval($row->childNodes->item(1)->textContent),
-				// 'campus_id' => find_or_insert_campus($row->childNodes->item(7)->textContent),
-				'course_id' => $course_id,
-			];
+        if (is_null($table)) {
+            return;
+        }
 
-			$sec = Section::firstOrNew($section_info);
+        $rowNumber = 0;
 
-			$values = [
-				'term' => trim($row->childNodes->item(0)->textContent),
-				'section_number' => intval($row->childNodes->item(2)->textContent),
-				'credits' => intval($row->childNodes->item(3)->textContent),
-				'raw_times' => $this->DOMinnerHTML($row->childNodes->item(5)->childNodes->item(0)),
-				'raw_locations' => $this->DOMinnerHTML($row->childNodes->item(6)->childNodes->item(0)),
-				'instructor_id' => Instructor::firstOrCreate(['name' => $row->childNodes->item(4)->textContent])->id,
-				'section_type_id' => SectionType::firstOrCreate(['name' => $row->childNodes->item(8)->textContent])->id,
-			];
+        $rows = $table->getElementsByTagName('tr');
 
-			foreach ($values as $key => $value)
-			{
-				$sec->$key = $value;
-			}
+        foreach ($rows as $row) {
+            if ($rowNumber++ == 0) {
+                continue;
+            }
 
-			$current_enrollment = [
-				'cap' => intval($row->childNodes->item(10)->textContent),
-				'current' => intval($row->childNodes->item(11)->textContent),
-				'available' => intval($row->childNodes->item(12)->textContent),
-			];
+            $section_info = [
+                'id'        => intval($row->childNodes->item(1)->textContent),
+                // 'campus_id' => find_or_insert_campus($row->childNodes->item(7)->textContent),
+                'course_id' => $course_id,
+            ];
 
-			$waitlist_enrollment = [
-				'cap' => intval($row->childNodes->item(13)->textContent),
-				'current' => intval($row->childNodes->item(14)->textContent),
-				'available' => intval($row->childNodes->item(15)->textContent),
-			];
+            $sec = Section::firstOrNew($section_info);
 
-			if (is_null($sec->waitlist_enrollment_id))
-			{
-				$sec->waitlist_enrollment_id = SectionEnrollment::create($waitlist_enrollment)->id;
-			}
+            $values = [
+                'term'            => trim($row->childNodes->item(0)->textContent),
+                'section_number'  => intval($row->childNodes->item(2)->textContent),
+                'credits'         => intval($row->childNodes->item(3)->textContent),
+                'raw_times'       => $this->DOMinnerHTML($row->childNodes->item(5)->childNodes->item(0)),
+                'raw_locations'   => $this->DOMinnerHTML($row->childNodes->item(6)->childNodes->item(0)),
+                'instructor_id'   => Instructor::firstOrCreate(['name' => $row->childNodes->item(4)->textContent])->id,
+                'section_type_id' => SectionType::firstOrCreate(['name' => $row->childNodes->item(8)->textContent])->id,
+            ];
 
-			$waitlist = SectionEnrollment::find($sec->waitlist_enrollment_id);
-			foreach ($waitlist_enrollment as $key => $value) {
-				$waitlist->$key = $value;
-			}
-			$waitlist->save();
+            foreach ($values as $key => $value) {
+                $sec->$key = $value;
+            }
 
-			if (is_null($sec->current_enrollment_id))
-			{
-				$sec->current_enrollment_id = SectionEnrollment::create($current_enrollment)->id;
-			}
+            $current_enrollment  = $this->extractEnrollmentData($row, 10);
+            $waitlist_enrollment = $this->extractEnrollmentData($row, 13);
 
-			$current = SectionEnrollment::find($sec->current_enrollment_id);
-			foreach ($current_enrollment as $key => $value) {
-				$current->$key = $value;
-			}
-			$current->save();
+            if (is_null($sec->waitlist_enrollment_id)) {
+                $sec->waitlist_enrollment_id = SectionEnrollment::create($waitlist_enrollment)->id;
+            }
 
-			$sec->save();
-		}
-	}
+            $waitlist = SectionEnrollment::find($sec->waitlist_enrollment_id);
+            foreach ($waitlist_enrollment as $key => $value) {
+                $waitlist->$key = $value;
+            }
+            $waitlist->save();
+
+            if (is_null($sec->current_enrollment_id)) {
+                $sec->current_enrollment_id = SectionEnrollment::create($current_enrollment)->id;
+            }
+
+            $current = SectionEnrollment::find($sec->current_enrollment_id);
+            foreach ($current_enrollment as $key => $value) {
+                $current->$key = $value;
+            }
+            $current->save();
+
+            $sec->save();
+        }
+    }
 }
