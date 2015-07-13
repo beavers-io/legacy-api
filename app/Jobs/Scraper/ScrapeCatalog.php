@@ -45,8 +45,6 @@ class ScrapeCatalog {
 	{
 		Model::unguard();
 
-		print_r($data);
-
 		$url = sprintf(self::CATALOG_URL, $data['subject'], $data['level']);
 		$contents = file_get_contents($url);
 
