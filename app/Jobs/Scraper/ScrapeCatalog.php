@@ -3,7 +3,6 @@
 use Courses\Course;
 use Courses\Instructor;
 use Courses\Section;
-use Courses\SectionEnrollment;
 use Courses\SectionType;
 use Courses\Subject;
 use Illuminate\Database\Eloquent\Model;
@@ -78,6 +77,19 @@ class ScrapeCatalog
         ];
     }
 
+    private function createOrUpdateEnrollment(Section $sec, $enrollmentInfo, $enrollmentKey)
+    {
+        if (is_null($sec->{$enrollmentKey})) {
+            $sec->{$enrollmentKey} = SectionEnrollment::create($enrollmentInfo)->id;
+        }
+
+        $enrollment = SectionEnrollment::find($sec->{$enrollmentKey});
+        foreach ($enrollmentInfo as $key => $value) {
+            $enrollment->$key = $value;
+        }
+        $enrollment->save();
+    }
+
     private function extractSection($row, $section_info)
     {
         $sec = Section::firstOrNew($section_info);
@@ -95,6 +107,9 @@ class ScrapeCatalog
         foreach ($values as $key => $value) {
             $sec->$key = $value;
         }
+
+        $this->createOrUpdateEnrollment($sec, $this->extractEnrollmentData($row, 10), 'current_enrollment_id');
+        $this->createOrUpdateEnrollment($sec, $this->extractEnrollmentData($row, 13), 'waitlist_enrollment_id');
 
         return $sec;
     }
@@ -121,43 +136,15 @@ class ScrapeCatalog
         }
 
         $rowNumber = 0;
-
-        $rows = $table->getElementsByTagName('tr');
-
-        foreach ($rows as $row) {
+        foreach ($table->getElementsByTagName('tr') as $row) {
             if ($rowNumber++ == 0) {
                 continue;
             }
 
-            $section_info = [
+            $sec = $this->extractSection($row, [
                 'id'        => intval($row->childNodes->item(1)->textContent),
                 'course_id' => $course_id,
-            ];
-
-            $sec = $this->extractSection($row, $section_info);
-
-            $current_enrollment  = $this->extractEnrollmentData($row, 10);
-            $waitlist_enrollment = $this->extractEnrollmentData($row, 13);
-
-            if (is_null($sec->waitlist_enrollment_id)) {
-                $sec->waitlist_enrollment_id = SectionEnrollment::create($waitlist_enrollment)->id;
-            }
-
-            $waitlist = SectionEnrollment::find($sec->waitlist_enrollment_id);
-            foreach ($waitlist_enrollment as $key => $value) {
-                $waitlist->$key = $value;
-            }
-            $waitlist->save();
-
-            if (is_null($sec->current_enrollment_id)) {
-                $sec->current_enrollment_id = SectionEnrollment::create($current_enrollment)->id;
-            }
-
-            $current = SectionEnrollment::find($sec->current_enrollment_id);
-            foreach ($current_enrollment as $key => $value) {
-                $current->$key = $value;
-            }
-            $current->save();
+            ]);
 
             $sec->save();
         }
