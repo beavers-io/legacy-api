@@ -1,6 +1,6 @@
 # Which Course For Me
 
-[![Code Climate](https://codeclimate.com/github/wcfm/legacy-api/badges/gpa.svg)](https://codeclimate.com/github/wcfm/legacy-api)
+[![Code Climate](https://codeclimate.com/github/wcfm/legacy-api/badges/gpa.svg)](https://codeclimate.com/github/wcfm/legacy-api) [![Build Status](https://travis-ci.org/wcfm/legacy-api.svg?branch=master)](https://travis-ci.org/wcfm/legacy-api)
 
 ## About
 
