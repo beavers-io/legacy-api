@@ -1,0 +1,9 @@
+languages:
+  PHP: true
+exclude_paths:
+  - "bootstrap"
+  - "config"
+  - "resources/assets"
+  - "database"
+  - "public"
+  - "storage"
