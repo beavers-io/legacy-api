@@ -16,11 +16,8 @@ class SectionTypeController extends Controller
 
     protected $transformer;
 
-    public function __construct(
-        SectionTypeRepositoryInterface $sectionTypeRepo,
-        JsonResponse $response,
-        SectionTypeTransformer $transformer
-    ) {
+    public function __construct(SectionTypeRepositoryInterface $sectionTypeRepo, JsonResponse $response, SectionTypeTransformer $transformer)
+    {
         $this->sectionTypeRepo = $sectionTypeRepo;
         $this->response        = $response;
         $this->transformer     = $transformer;

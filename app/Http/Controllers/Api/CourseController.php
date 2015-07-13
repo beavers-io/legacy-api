@@ -16,11 +16,8 @@ class CourseController extends Controller
 
     protected $transformer;
 
-    public function __construct(
-        CourseRepositoryInterface $courseRepo,
-        JsonResponse $response,
-        CourseTransformer $transformer
-    ) {
+    public function __construct(CourseRepositoryInterface $courseRepo, JsonResponse $response, CourseTransformer $transformer)
+    {
         $this->courseRepo  = $courseRepo;
         $this->response    = $response;
         $this->transformer = $transformer;

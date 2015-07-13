@@ -16,9 +16,8 @@ class SubjectController extends Controller
 
     protected $transformer;
 
-    public function __construct(SubjectRepositoryInterface $subjectRepo,
-        JsonResponse $response,
-        SubjectTransformer $transformer) {
+    public function __construct(SubjectRepositoryInterface $subjectRepo, JsonResponse $response, SubjectTransformer $transformer)
+    {
         $this->response    = $response;
         $this->subjectRepo = $subjectRepo;
         $this->transformer = $transformer;
