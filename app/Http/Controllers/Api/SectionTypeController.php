@@ -1,33 +1,16 @@
-<?php namespace Courses\Http\Controllers\Api;
+<?php
 
-use Courses\Http\Controllers\Controller;
+namespace Courses\Http\Controllers\Api;
+
 use Courses\Repositories\SectionType\SectionTypeRepositoryInterface;
 use Courses\Transformers\SectionTypeTransformer;
 
-class SectionTypeController extends Controller
+class SectionTypeController extends ApiController
 {
 
-    use TraitTransformer;
-
-    protected $transformer;
-
-    public function __construct(SectionTypeTransformer $transformer)
+    public function __construct(SectionTypeTransformer $transformer, SectionTypeRepositoryInterface $repository)
     {
-        $this->transformer = $transformer;
-    }
-
-    public function index(SectionTypeRepositoryInterface $sectionTypeRepo)
-    {
-        return $this->createJsonResponse(
-            $sectionTypeRepo->paginateResults()->all()
-        );
-    }
-
-    public function show(SectionTypeRepositoryInterface $sectionTypeRepo, $sectionTypeId)
-    {
-        return $this->createJsonResponse(
-            $sectionTypeRepo->find($sectionTypeId)
-        );
+        parent::__construct($transformer, $repository);
     }
 
 }

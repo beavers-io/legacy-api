@@ -1,33 +1,16 @@
-<?php namespace Courses\Http\Controllers\Api;
+<?php
 
-use Courses\Http\Controllers\Controller;
+namespace Courses\Http\Controllers\Api;
+
 use Courses\Repositories\Subject\SubjectRepositoryInterface;
 use Courses\Transformers\SubjectTransformer;
 
-class SubjectController extends Controller
+class SubjectController extends ApiController
 {
 
-    use TraitTransformer;
-
-    protected $transformer;
-
-    public function __construct(SubjectTransformer $transformer)
+    public function __construct(SubjectTransformer $transformer, SubjectRepositoryInterface $subjectRepo)
     {
-        $this->transformer = $transformer;
-    }
-
-    public function index(SubjectRepositoryInterface $subjectRepo)
-    {
-        return $this->createJsonResponse(
-            $subjectRepo->paginateResults()->all()
-        );
-    }
-
-    public function show(SubjectRepositoryInterface $subjectRepo, $subject_id)
-    {
-        return $this->createJsonResponse(
-            $subjectRepo->find($subject_id)
-        );
+        parent::__construct($transformer, $repository);
     }
 
 }
